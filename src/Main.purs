@@ -26,10 +26,11 @@ import Control.Monad.Eff.JQuery
 import Control.Monad.Eff.Ref (Ref, REF, readRef, modifyRef, newRef)
 
 import Data.AppState (AppState(..))
+import Data.Array ((..), elem, findIndex, index)
 import Data.DateTime as DT
 import Data.JSDate (LOCALE, parse, toDateTime)
 import Data.Map as M
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.WeatherCard (WeatherCard, CardKey)
 
 import DOM (DOM)
@@ -85,8 +86,7 @@ updateForecastCard stateRef cardData = do
   card <- getOrCreateCard stateRef key
   find ".description" card >>= setText current.text
   find ".date" card >>= setText current.date
-  --     card.querySelector('.current .icon').classList.add(app.getIconClass(current.code));
-  find ".current .icon" card >>= setClass "rain" true
+  find ".current .icon" card >>= setClass (getIconClass current.code) true
 
 
 getOrCreateCard
@@ -115,6 +115,33 @@ getOrCreateCard stateRef key = do
 addCardForKey :: CardKey -> JQuery -> AppState -> AppState
 addCardForKey key card (AppState state) =
   AppState state { visibleCards = M.insert key card state.visibleCards }
+
+-- Weather codes: https://developer.yahoo.com/weather/documentation.html#codes
+weatherCodes =
+  [ [25, 32, 33, 34, 36, 3200]
+  , [0, 1, 2, 6] <> 8..12 <> [17, 35, 40]
+  , [3, 4, 37, 38, 39, 45, 47]
+  , [5, 7, 13, 14, 16, 18, 41, 42, 43, 46]
+  , [15] <> 19..22
+  , [23, 24]
+  , [26, 27, 28, 31]
+  , [29, 30, 44]
+  ]
+
+weatherClasses =
+  [ "clear-day"
+  , "rain"
+  , "thunderstorms"
+  , "snow"
+  , "fog"
+  , "windy"
+  , "cloudy"
+  , "partly-cloudy-day"
+  ]
+
+getIconClass :: Int -> String
+getIconClass weatherCode =
+  fromMaybe "clear-day" $ findIndex (elem weatherCode) weatherCodes >>= index weatherClasses
 
 
 -- Fake data
