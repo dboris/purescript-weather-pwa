@@ -25,7 +25,7 @@ import Control.Monad.Eff.JQuery
   )
 import Control.Monad.Eff.Ref (Ref, REF, readRef, modifyRef, newRef)
 
-import Data.AppState (AppState(..), initialAppState)
+import Data.AppState (AppState(..))
 import Data.DateTime as DT
 import Data.JSDate (LOCALE, parse, toDateTime)
 import Data.Map as M
@@ -38,24 +38,29 @@ foreign import test :: Int
 
 
 main :: forall e. Eff (console :: CONSOLE, dom :: DOM, locale :: LOCALE, ref :: REF | e) Unit
-main = do
-  log "Hello jQuery!"
-  stateRef <- newRef initialAppState
-  ready $ do
-    addDialog <- select ".dialog-container"
-    body <- body
-    -- TODO add cardTemplate and container to state
-    cardTemplate <- select ".cardTemplate"
-    container <- select ".main"
-    spinner <- select ".loader"
+main = ready $ do
+  log "Hello PWA!"
 
-    on' "click" "#butAdd" (\_ _ -> toggleAddDialog true addDialog) body
+  spinner <- select ".loader"
+  cardTemplate <- select ".cardTemplate"
+  container <- select ".main"
+  addDialog <- select ".dialog-container"
 
-    hideSpinner spinner
+  stateRef <- newRef $ AppState
+    { isLoading: true
+    , visibleCards: M.empty
+    , spinner: spinner
+    , cardTemplate: cardTemplate
+    , container: container
+    , addDialog: addDialog
+    }
 
-    -- state <- readRef stateRef
-    updateForecastCard cardTemplate container stateRef initialWeatherForecast
+  body <- body
+  on' "click" "#butAdd" (\_ _ -> toggleAddDialog true addDialog) body
 
+  hideSpinner spinner
+
+  updateForecastCard stateRef initialWeatherForecast
 
 
 -- Methods to update/refresh the UI
@@ -69,18 +74,15 @@ toggleAddDialog visible = setClass "dialog-container--visible" visible
 
 updateForecastCard
   :: forall e
-   . JQuery
-  -> JQuery
-  -> Ref AppState
+   . Ref AppState
   -> WeatherCard
   -> Eff (dom :: DOM, locale :: LOCALE, ref :: REF | e) Unit
-updateForecastCard cardTemplate container stateRef cardData = do
+updateForecastCard stateRef cardData = do
   let dataLastUpdated = toDateTime <$> parse cardData.created  -- Maybe DT.DateTime
   let key = cardData.key
   let current = cardData.channel.item.condition
 
-  card <- getOrCreateCard cardTemplate container stateRef key
-  -- TODO update card
+  card <- getOrCreateCard stateRef key
   find ".description" card >>= setText current.text
   find ".date" card >>= setText current.date
   --     card.querySelector('.current .icon').classList.add(app.getIconClass(current.code));
@@ -89,22 +91,20 @@ updateForecastCard cardTemplate container stateRef cardData = do
 
 getOrCreateCard
   :: forall e
-   . JQuery
-  -> JQuery
-  -> Ref AppState
+   . Ref AppState
   -> CardKey
   -> Eff (dom :: DOM, ref :: REF | e) JQuery
-getOrCreateCard cardTemplate container stateRef key = do
+getOrCreateCard stateRef key = do
   AppState state <- readRef stateRef
   case M.lookup key state.visibleCards of
     Just wc ->
       pure wc
     Nothing -> do
       -- card doesn't exist - clone from template and store in state
-      nc <- clone cardTemplate
+      nc <- clone state.cardTemplate
       setClass "cardTemplate" false nc
       setAttr "hidden" false nc
-      append nc container
+      append nc state.container
       modifyRef stateRef $ addCardForKey key nc
       pure nc
 

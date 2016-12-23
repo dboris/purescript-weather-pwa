@@ -11,10 +11,8 @@ import Data.WeatherCard (CardKey)
 newtype AppState = AppState
   { isLoading :: Boolean
   , visibleCards :: M.Map CardKey JQuery
-  }
-
-initialAppState :: AppState
-initialAppState = AppState
-  { isLoading: true
-  , visibleCards: M.empty
+  , spinner :: JQuery
+  , cardTemplate :: JQuery
+  , container :: JQuery
+  , addDialog :: JQuery
   }
