@@ -2,7 +2,7 @@ module Main where
 
 import Prelude hiding (append)
 
-import Control.Monad.Eff (Eff)
+import Control.Monad.Eff (Eff, foreachE)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Eff.JQuery
   ( JQuery
@@ -22,16 +22,18 @@ import Control.Monad.Eff.JQuery
   , setAttr
   , setClass
   , setText
+  , toArray
   )
 import Control.Monad.Eff.Ref (Ref, REF, readRef, modifyRef, newRef)
 
 import Data.AppState (AppState(..))
-import Data.Array ((..), elem, findIndex, index)
+import Data.Array ((..), elem, findIndex, index, zip)
 import Data.DateTime as DT
 import Data.JSDate (LOCALE, parse, toDateTime)
 import Data.Map as M
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.WeatherCard (WeatherCard, CardKey)
+import Data.Tuple (Tuple(..))
+import Data.WeatherCard (WeatherCard, CardKey, ForcastData)
 
 import DOM (DOM)
 
@@ -85,9 +87,21 @@ updateForecastCard stateRef cardData = do
 
   card <- getOrCreateCard stateRef key
   find ".description" card >>= setText current.text
-  find ".date" card >>= setText current.date
+  find "> .date" card >>= setText current.date
   find ".current .icon" card >>= setClass (getIconClass current.code) true
+  find ".current .temperature .value" card >>= (setText $ show current.temp)
+  find ".current .sunrise" card >>= setText cardData.channel.astronomy.sunrise
+  find ".current .sunset" card >>= setText cardData.channel.astronomy.sunset
+  find ".current .humidity" card >>= (setText $ show cardData.channel.atmosphere.humidity <> "%")
+  find ".current .wind .value" card >>= (setText $ show cardData.channel.wind.speed)
+  find ".current .wind .direction" card >>= (setText $ show cardData.channel.wind.direction)
 
+  nextDays <- find ".future .oneday" card >>= toArray
+  foreachE (zip nextDays cardData.channel.item.forecast) updateNextDay
+
+updateNextDay :: forall e. Tuple JQuery ForcastData -> Eff (dom :: DOM | e) Unit
+updateNextDay (Tuple c d) = do
+  find ".icon" c >>= setClass (getIconClass d.code) true
 
 getOrCreateCard
   :: forall e
