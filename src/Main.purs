@@ -50,8 +50,6 @@ type WeekDay = String
 
 main :: forall e. Eff (console :: CONSOLE, dom :: DOM, locale :: LOCALE, now :: NOW, ref :: REF | e) Unit
 main = ready $ do
-  log "Hello PWA!"
-
   spinner <- select ".loader"
   cardTemplate <- select ".cardTemplate"
   container <- select ".main"
@@ -70,7 +68,6 @@ main = ready $ do
   on' "click" "#butAdd" (\_ _ -> toggleAddDialog true addDialog) body
 
   hideSpinner spinner
-
   updateForecastCard stateRef initialWeatherForecast
 
 
@@ -87,34 +84,40 @@ updateForecastCard
    . Ref AppState
   -> WeatherCard
   -> Eff (console :: CONSOLE, dom :: DOM, locale :: LOCALE, now :: NOW, ref :: REF | e) Unit
-updateForecastCard stateRef cardData = do
+updateForecastCard stateRef cardData =
   let dataLastUpdated = toDateTime <$> parse cardData.created  -- Maybe DT.DateTime
-  let key = cardData.key
-  let current = cardData.channel.item.condition
+      key = cardData.key
+      current = cardData.channel.item.condition
+      forcast = cardData.channel.item.forecast
+  in do
+    card <- getOrCreateCard stateRef key
+    find ".description" card >>= setText current.text
+    find "> .date" card >>= setText current.date
+    find ".current .icon" card >>= setClass (getIconClass current.code) true
+    find ".current .temperature .value" card >>= (setText $ show current.temp)
+    find ".current .sunrise" card >>= setText cardData.channel.astronomy.sunrise
+    find ".current .sunset" card >>= setText cardData.channel.astronomy.sunset
+    find ".current .humidity" card >>= (setText $ show cardData.channel.atmosphere.humidity <> "%")
+    find ".current .wind .value" card >>= (setText $ show cardData.channel.wind.speed)
+    find ".current .wind .direction" card >>= (setText $ show cardData.channel.wind.direction)
 
-  card <- getOrCreateCard stateRef key
-  find ".description" card >>= setText current.text
-  find "> .date" card >>= setText current.date
-  find ".current .icon" card >>= setClass (getIconClass current.code) true
-  find ".current .temperature .value" card >>= (setText $ show current.temp)
-  find ".current .sunrise" card >>= setText cardData.channel.astronomy.sunrise
-  find ".current .sunset" card >>= setText cardData.channel.astronomy.sunset
-  find ".current .humidity" card >>= (setText $ show cardData.channel.atmosphere.humidity <> "%")
-  find ".current .wind .value" card >>= (setText $ show cardData.channel.wind.speed)
-  find ".current .wind .direction" card >>= (setText $ show cardData.channel.wind.direction)
+    nextDays <- find ".future .oneday" card >>= toArray
+    ndw <- nextDaysOfWeek
+    foreachE (zip3 nextDays forcast ndw) updateNextDay
 
-  nextDays <- find ".future .oneday" card >>= toArray
-  ndw <- nextDaysOfWeek
-  let forcast = cardData.channel.item.forecast
-  foreachE (zip3 nextDays forcast ndw) updateNextDay
-
-updateNextDay :: forall e. Tuple3 JQuery ForcastData WeekDay -> Eff (console :: CONSOLE, dom :: DOM | e) Unit
-updateNextDay t = do
+updateNextDay
+  :: forall e
+   . Tuple3 JQuery ForcastData WeekDay
+  -> Eff (console :: CONSOLE, dom :: DOM | e) Unit
+updateNextDay t =
   let c = get1 t
-  let d = get2 t
-  let w = get3 t
-  find ".icon" c >>= setClass (getIconClass d.code) true
-  find ".date" c >>= setText w
+      daily = get2 t
+      wd = get3 t
+  in do
+    find ".icon" c >>= setClass (getIconClass daily.code) true
+    find ".date" c >>= setText wd
+    find ".temp-high .value" c >>= (setText $ show daily.high)
+    find ".temp-low .value" c >>= (setText $ show daily.low)
 
 getOrCreateCard
   :: forall e
