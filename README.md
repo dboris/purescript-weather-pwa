@@ -14,8 +14,8 @@ pulp browserify --to static/bundle.js
 
 ## TODO
 
-[x] Implement your App Shell
-[ ] Start with a fast first load
-[ ] Use service workers to pre-cache the App Shell
-[ ] Use service workers to cache the forecast data
-[ ] Support native integration
+- [x] Implement your App Shell
+- [ ] Start with a fast first load
+- [ ] Use service workers to pre-cache the App Shell
+- [ ] Use service workers to cache the forecast data
+- [ ] Support native integration
