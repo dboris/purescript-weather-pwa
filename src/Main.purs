@@ -4,39 +4,18 @@ import Prelude hiding (append)
 
 import Control.Comonad (extract)
 import Control.Monad.Eff (Eff, foreachE)
-import Control.Monad.Eff.Console (CONSOLE, log)
-import Control.Monad.Eff.JQuery
-  ( JQuery
-  , JQueryEvent
-  , append
-  , appendText
-  , body
-  , clone
-  , create
-  , css
-  , find
-  , getValue
-  , on
-  , on'
-  , ready
-  , select
-  , setAttr
-  , setClass
-  , setText
-  , toArray
-  )
+import Control.Monad.Eff.Console (CONSOLE)
+import Control.Monad.Eff.JQuery (JQuery, append, body, clone, find, on', ready, select, setAttr, setClass, setText, toArray)
 import Control.Monad.Eff.Now (NOW, nowDate)
 import Control.Monad.Eff.Ref (Ref, REF, readRef, modifyRef, newRef)
 
 import Data.AppState (AppState(..))
-import Data.Array ((..), (!!), elem, findIndex, index, zip, drop)
+import Data.Array (drop, elem, findIndex, index, (..))
 import Data.Date (Date, weekday)
-import Data.DateTime as DT
 import Data.Enum (fromEnum)
-import Data.Int as Int
 import Data.JSDate (LOCALE, parse, toDateTime)
-import Data.Map as M
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Map as Map
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple.Nested (Tuple3, get1, get2, get3)
 import Data.WeatherCard (WeatherCard, CardKey, ForcastData)
 import Data.Zippable (zip3)
@@ -57,7 +36,7 @@ main = ready $ do
 
   stateRef <- newRef $ AppState
     { isLoading: true
-    , visibleCards: M.empty
+    , visibleCards: Map.empty
     , spinner: spinner
     , cardTemplate: cardTemplate
     , container: container
@@ -126,17 +105,16 @@ getOrCreateCard
   -> Eff (dom :: DOM, ref :: REF | e) JQuery
 getOrCreateCard stateRef key = do
   AppState state <- readRef stateRef
-  case M.lookup key state.visibleCards of
-    Just wc ->
-      pure wc
+  case Map.lookup key state.visibleCards of
+    Just card -> pure card
     Nothing -> do
       -- card doesn't exist - clone from template and store in state
-      nc <- clone state.cardTemplate
-      setClass "cardTemplate" false nc
-      setAttr "hidden" false nc
-      append nc state.container
-      modifyRef stateRef $ addCardForKey key nc
-      pure nc
+      newCard <- clone state.cardTemplate
+      setClass "cardTemplate" false newCard
+      setAttr "hidden" false newCard
+      append newCard state.container
+      modifyRef stateRef $ addCardForKey key newCard
+      pure newCard
 
 
 -- Methods for dealing with the model
@@ -157,9 +135,10 @@ nextDaysOfWeek = do
 
 addCardForKey :: CardKey -> JQuery -> AppState -> AppState
 addCardForKey key card (AppState state) =
-  AppState state { visibleCards = M.insert key card state.visibleCards }
+  AppState state { visibleCards = Map.insert key card state.visibleCards }
 
--- Weather codes: https://developer.yahoo.com/weather/documentation.html#codes
+-- | Weather codes: https://developer.yahoo.com/weather/documentation.html#codes
+weatherCodes :: Array (Array Int)
 weatherCodes =
   [ [25, 32, 33, 34, 36, 3200]
   , [0, 1, 2, 6] <> 8..12 <> [17, 35, 40]
@@ -171,6 +150,7 @@ weatherCodes =
   , [29, 30, 44]
   ]
 
+weatherClasses :: Array String
 weatherClasses =
   [ "clear-day"
   , "rain"
