@@ -2,6 +2,7 @@ module Main where
 
 import Prelude hiding (append)
 
+import Control.Comonad (extract)
 import Control.Monad.Eff (Eff, foreachE)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Eff.JQuery
@@ -24,23 +25,30 @@ import Control.Monad.Eff.JQuery
   , setText
   , toArray
   )
+import Control.Monad.Eff.Now (NOW, nowDate)
 import Control.Monad.Eff.Ref (Ref, REF, readRef, modifyRef, newRef)
 
 import Data.AppState (AppState(..))
-import Data.Array ((..), elem, findIndex, index, zip)
+import Data.Array ((..), (!!), elem, findIndex, index, zip, drop)
+import Data.Date (Date, weekday)
 import Data.DateTime as DT
+import Data.Enum (fromEnum)
+import Data.Int as Int
 import Data.JSDate (LOCALE, parse, toDateTime)
 import Data.Map as M
-import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Tuple (Tuple(..))
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Tuple.Nested (Tuple3, get1, get2, get3)
 import Data.WeatherCard (WeatherCard, CardKey, ForcastData)
+import Data.Zippable (zip3)
 
 import DOM (DOM)
 
 foreign import test :: Int
 
 
-main :: forall e. Eff (console :: CONSOLE, dom :: DOM, locale :: LOCALE, ref :: REF | e) Unit
+type WeekDay = String
+
+main :: forall e. Eff (console :: CONSOLE, dom :: DOM, locale :: LOCALE, now :: NOW, ref :: REF | e) Unit
 main = ready $ do
   log "Hello PWA!"
 
@@ -74,12 +82,11 @@ hideSpinner = setAttr "hidden" true
 toggleAddDialog :: forall e. Boolean -> JQuery -> Eff (dom :: DOM | e) Unit
 toggleAddDialog visible = setClass "dialog-container--visible" visible
 
-
 updateForecastCard
   :: forall e
    . Ref AppState
   -> WeatherCard
-  -> Eff (dom :: DOM, locale :: LOCALE, ref :: REF | e) Unit
+  -> Eff (console :: CONSOLE, dom :: DOM, locale :: LOCALE, now :: NOW, ref :: REF | e) Unit
 updateForecastCard stateRef cardData = do
   let dataLastUpdated = toDateTime <$> parse cardData.created  -- Maybe DT.DateTime
   let key = cardData.key
@@ -97,11 +104,17 @@ updateForecastCard stateRef cardData = do
   find ".current .wind .direction" card >>= (setText $ show cardData.channel.wind.direction)
 
   nextDays <- find ".future .oneday" card >>= toArray
-  foreachE (zip nextDays cardData.channel.item.forecast) updateNextDay
+  ndw <- nextDaysOfWeek
+  let forcast = cardData.channel.item.forecast
+  foreachE (zip3 nextDays forcast ndw) updateNextDay
 
-updateNextDay :: forall e. Tuple JQuery ForcastData -> Eff (dom :: DOM | e) Unit
-updateNextDay (Tuple c d) = do
+updateNextDay :: forall e. Tuple3 JQuery ForcastData WeekDay -> Eff (console :: CONSOLE, dom :: DOM | e) Unit
+updateNextDay t = do
+  let c = get1 t
+  let d = get2 t
+  let w = get3 t
   find ".icon" c >>= setClass (getIconClass d.code) true
+  find ".date" c >>= setText w
 
 getOrCreateCard
   :: forall e
@@ -125,6 +138,19 @@ getOrCreateCard stateRef key = do
 
 -- Methods for dealing with the model
 
+today :: forall e. Eff (now :: NOW | e) Date
+today = extract <$> nowDate
+
+weekdayFromEnum :: Date -> Int
+weekdayFromEnum = fromEnum <<< weekday
+
+daysOfWeek :: Array WeekDay
+daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+nextDaysOfWeek :: forall e. Eff (now :: NOW | e) (Array WeekDay)
+nextDaysOfWeek = do
+  d <- weekdayFromEnum <$> today
+  pure $ drop d (daysOfWeek <> daysOfWeek)
 
 addCardForKey :: CardKey -> JQuery -> AppState -> AppState
 addCardForKey key card (AppState state) =

@@ -13,7 +13,9 @@
     "purescript-datetime": "^2.0.0",
     "purescript-js-date": "^3.0.0",
     "purescript-maps": "^2.0.2",
-    "purescript-refs": "^2.0.0"
+    "purescript-refs": "^2.0.0",
+    "purescript-now": "^2.0.0",
+    "purescript-zippable": "^0.1.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^2.0.0"
