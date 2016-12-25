@@ -1,5 +1,5 @@
 {
-  "name": "weather-pwa-jq",
+  "name": "purescript-weather-pwa",
   "version": "1.0.0",
   "description": "Progressive web apps tutorial in PureScript.",
   "main": "index.js",
