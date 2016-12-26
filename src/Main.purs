@@ -5,7 +5,7 @@ import Prelude hiding (append)
 import Control.Comonad (extract)
 import Control.Monad.Eff (Eff, foreachE)
 import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.JQuery (JQuery, append, body, clone, find, on', ready, select, setAttr, setClass, setText, toArray)
+import Control.Monad.Eff.JQuery (JQuery, append, body, clone, find, hide, on', ready, select, setAttr, setClass, setText, toArray)
 import Control.Monad.Eff.Now (NOW, nowDate)
 import Control.Monad.Eff.Ref (Ref, REF, readRef, modifyRef, newRef)
 
@@ -46,14 +46,11 @@ main = ready $ do
   body <- body
   on' "click" "#butAdd" (\_ _ -> toggleAddDialog true addDialog) body
 
-  hideSpinner spinner
+  -- uncomment line below to test app with fake data
   updateForecastCard stateRef initialWeatherForecast
 
 
 -- Methods to update/refresh the UI
-
-hideSpinner :: forall e. JQuery -> Eff (dom :: DOM | e) Unit
-hideSpinner = setAttr "hidden" true
 
 toggleAddDialog :: forall e. Boolean -> JQuery -> Eff (dom :: DOM | e) Unit
 toggleAddDialog visible = setClass "dialog-container--visible" visible
@@ -83,6 +80,11 @@ updateForecastCard stateRef cardData =
     nextDays <- find ".future .oneday" card >>= toArray
     ndw <- nextDaysOfWeek
     foreachE (zip3 nextDays forcast ndw) updateNextDay
+
+    AppState state <- readRef stateRef
+    when state.isLoading $ do
+      hide state.spinner
+      modifyRef stateRef $ \(AppState s) -> AppState s { isLoading = false }
 
 updateNextDay
   :: forall e
