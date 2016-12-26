@@ -4,50 +4,68 @@ import Prelude hiding (append)
 
 import Control.Comonad (extract)
 import Control.Monad.Eff (Eff, foreachE)
-import Control.Monad.Eff.Console (CONSOLE)
+import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Eff.JQuery (JQuery, append, body, clone, find, hide, on', ready, select, setAttr, setClass, setText, toArray)
 import Control.Monad.Eff.Now (NOW, nowDate)
-import Control.Monad.Eff.Ref (Ref, REF, readRef, modifyRef, newRef)
+import Control.Monad.Eff.Ref (REF, Ref, readRef, modifyRef, newRef)
 
-import Data.AppState (AppState(..))
-import Data.Array (drop, elem, findIndex, index, (..))
+import Data.AppState (AppState(..), CardKey, SelectedCity(..), selectedCitiesKey)
+import Data.Array (drop, elem, findIndex, index, singleton, (..))
 import Data.Date (Date, weekday)
 import Data.Enum (fromEnum)
 import Data.JSDate (LOCALE, parse, toDateTime)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, fromMaybe')
 import Data.Tuple.Nested (Tuple3, get1, get2, get3)
-import Data.WeatherCard (WeatherCard, CardKey, ForcastData)
+import Data.WeatherCard (WeatherCard, ForcastData)
 import Data.Zippable (zip3)
 
 import DOM (DOM)
+import DOM.WebStorage (STORAGE, getItem, setItem, getLocalStorage)
 
 foreign import test :: Int
 
 
 type WeekDay = String
 
-main :: forall e. Eff (console :: CONSOLE, dom :: DOM, locale :: LOCALE, now :: NOW, ref :: REF | e) Unit
+main :: forall e. Eff (console :: CONSOLE, dom :: DOM, locale :: LOCALE, now :: NOW, ref :: REF, storage :: STORAGE | e) Unit
 main = ready $ do
   spinner <- select ".loader"
   cardTemplate <- select ".cardTemplate"
   container <- select ".main"
   addDialog <- select ".dialog-container"
 
+  body <- body
+  on' "click" "#butAdd" (\_ _ -> toggleAddDialog true addDialog) body
+
+  localStorage <- getLocalStorage
+  storedSelectedCities <- getItem localStorage selectedCitiesKey
+
+  let selectedCities = fromMaybe'
+                        (\_ -> singleton $ SelectedCity { key: initialWeatherForecast.key
+                                                        , label: initialWeatherForecast.label })
+                        storedSelectedCities
+
   stateRef <- newRef $ AppState
     { isLoading: true
     , visibleCards: Map.empty
+    , selectedCities: selectedCities
     , spinner: spinner
     , cardTemplate: cardTemplate
     , container: container
     , addDialog: addDialog
     }
 
-  body <- body
-  on' "click" "#butAdd" (\_ _ -> toggleAddDialog true addDialog) body
-
-  -- uncomment line below to test app with fake data
-  updateForecastCard stateRef initialWeatherForecast
+  case storedSelectedCities of
+    Just cities ->
+      foreachE cities (\(SelectedCity city) -> getForecast city.key city.label)
+    Nothing -> do
+      -- The user is using the app for the first time, or the user has not
+      -- saved any cities, so show the user some fake data. A real app in this
+      -- scenario could guess the user's location via IP lookup and then inject
+      -- that data into the page.
+      updateForecastCard stateRef initialWeatherForecast
+      saveSelectedCities stateRef
 
 
 -- Methods to update/refresh the UI
@@ -120,6 +138,20 @@ getOrCreateCard stateRef key = do
 
 
 -- Methods for dealing with the model
+
+getForecast :: forall e. CardKey -> String -> Eff (console :: CONSOLE | e) Unit
+getForecast key label =
+  log $ "key=" <> key <> ", label=" <> label
+
+-- | Save list of cities to localStorage.
+saveSelectedCities
+  :: forall e
+   . Ref AppState
+  -> Eff (dom :: DOM, ref :: REF, storage :: STORAGE | e) Unit
+saveSelectedCities stateRef = do
+  AppState state <- readRef stateRef
+  localStorage <- getLocalStorage
+  setItem localStorage selectedCitiesKey state.selectedCities
 
 today :: forall e. Eff (now :: NOW | e) Date
 today = extract <$> nowDate

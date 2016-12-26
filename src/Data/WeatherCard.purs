@@ -1,9 +1,8 @@
 module Data.WeatherCard where
 
-import Prelude
+import Data.AppState (CardKey)
 
 
-type CardKey = String
 type ForcastData =
   { code :: Int
   , high :: Int
