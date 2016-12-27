@@ -3,8 +3,11 @@ module Main where
 import Prelude hiding (append)
 
 import Control.Comonad (extract)
+import Control.Monad.Aff (launchAff)
 import Control.Monad.Eff (Eff, foreachE)
+import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.JQuery (JQuery, append, body, clone, find, hide, on', ready, select, setAttr, setClass, setText, toArray)
 import Control.Monad.Eff.Now (NOW, nowDate)
 import Control.Monad.Eff.Ref (REF, Ref, readRef, modifyRef, newRef)
@@ -23,12 +26,21 @@ import Data.Zippable (zip3)
 import DOM (DOM)
 import DOM.WebStorage (STORAGE, getItem, setItem, getLocalStorage)
 
+import Network.HTTP.Affjax (AJAX, get)
+
 foreign import test :: Int
 
 
 type WeekDay = String
 
-main :: forall e. Eff (console :: CONSOLE, dom :: DOM, locale :: LOCALE, now :: NOW, ref :: REF, storage :: STORAGE | e) Unit
+main :: forall e. Eff ( ajax :: AJAX
+                      , console :: CONSOLE
+                      , dom :: DOM
+                      , err :: EXCEPTION
+                      , locale :: LOCALE
+                      , now :: NOW
+                      , ref :: REF
+                      , storage :: STORAGE | e ) Unit
 main = ready $ do
   spinner <- select ".loader"
   cardTemplate <- select ".cardTemplate"
@@ -46,15 +58,14 @@ main = ready $ do
                                                         , label: initialWeatherForecast.label })
                         storedSelectedCities
 
-  stateRef <- newRef $ AppState
-    { isLoading: true
-    , visibleCards: Map.empty
-    , selectedCities: selectedCities
-    , spinner: spinner
-    , cardTemplate: cardTemplate
-    , container: container
-    , addDialog: addDialog
-    }
+  stateRef <- newRef $ AppState { isLoading: true
+                                , visibleCards: Map.empty
+                                , selectedCities: selectedCities
+                                , spinner: spinner
+                                , cardTemplate: cardTemplate
+                                , container: container
+                                , addDialog: addDialog
+                                }
 
   case storedSelectedCities of
     Just cities ->
@@ -68,7 +79,7 @@ main = ready $ do
       saveSelectedCities stateRef
 
 
--- Methods to update/refresh the UI
+-- Methods to update/refresh the UI --
 
 toggleAddDialog :: forall e. Boolean -> JQuery -> Eff (dom :: DOM | e) Unit
 toggleAddDialog visible = setClass "dialog-container--visible" visible
@@ -137,11 +148,26 @@ getOrCreateCard stateRef key = do
       pure newCard
 
 
--- Methods for dealing with the model
+-- Methods for dealing with the model --
 
-getForecast :: forall e. CardKey -> String -> Eff (console :: CONSOLE | e) Unit
+-- | Gets a forecast for a specific city and updates the card with the data.
+-- | `getForecast` first checks if the weather data is in the cache. If so,
+-- | then it gets that data and populates the card with the cached data.
+-- | Then, `getForecast` goes to the network for fresh data. If the network
+-- | request goes through, then the card gets updated a second time with the
+-- | freshest data.
+getForecast
+  :: forall e
+   . CardKey
+  -> String
+  -> Eff (ajax :: AJAX, console :: CONSOLE, err :: EXCEPTION | e) Unit
 getForecast key label =
-  log $ "key=" <> key <> ", label=" <> label
+  let statement = "select * from weather.forecast where woeid=" <> key
+      url = "https://query.yahooapis.com/v1/public/yql?format=json&q=" <> statement
+  in void $ launchAff do
+    resp <- get url
+    liftEff $ log resp.response
+
 
 -- | Save list of cities to localStorage.
 saveSelectedCities
