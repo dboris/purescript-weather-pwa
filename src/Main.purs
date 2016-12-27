@@ -40,7 +40,8 @@ main :: forall e. Eff ( ajax :: AJAX
                       , locale :: LOCALE
                       , now :: NOW
                       , ref :: REF
-                      , storage :: STORAGE | e ) Unit
+                      , storage :: STORAGE
+                      | e ) Unit
 main = ready $ do
   spinner <- select ".loader"
   cardTemplate <- select ".cardTemplate"
@@ -53,10 +54,7 @@ main = ready $ do
   localStorage <- getLocalStorage
   storedSelectedCities <- getItem localStorage selectedCitiesKey
 
-  let selectedCities = fromMaybe'
-                        (\_ -> singleton $ SelectedCity { key: initialWeatherForecast.key
-                                                        , label: initialWeatherForecast.label })
-                        storedSelectedCities
+  let selectedCities = fromMaybe' (\_ -> initialSelectedCity) storedSelectedCities
 
   stateRef <- newRef $ AppState { isLoading: true
                                 , visibleCards: Map.empty
@@ -68,7 +66,7 @@ main = ready $ do
 
   case storedSelectedCities of
     Just cities ->
-      foreachE cities \(SelectedCity city) -> getForecast city.key city.label
+      foreachE cities \(SelectedCity {key, label}) -> getForecast key label
     Nothing -> do
       -- The user is using the app for the first time, or the user has not
       -- saved any cities, so show the user some fake data. A real app in this
@@ -261,3 +259,7 @@ initialWeatherForecast =
       }
     }
   }
+
+initialSelectedCity :: Array SelectedCity
+initialSelectedCity = singleton $ SelectedCity { key: initialWeatherForecast.key
+                                               , label: initialWeatherForecast.label }
