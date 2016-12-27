@@ -60,16 +60,15 @@ main = ready $ do
 
   stateRef <- newRef $ AppState { isLoading: true
                                 , visibleCards: Map.empty
-                                , selectedCities: selectedCities
-                                , spinner: spinner
-                                , cardTemplate: cardTemplate
-                                , container: container
-                                , addDialog: addDialog
-                                }
+                                , selectedCities
+                                , spinner
+                                , cardTemplate
+                                , container
+                                , addDialog }
 
   case storedSelectedCities of
     Just cities ->
-      foreachE cities (\(SelectedCity city) -> getForecast city.key city.label)
+      foreachE cities \(SelectedCity city) -> getForecast city.key city.label
     Nothing -> do
       -- The user is using the app for the first time, or the user has not
       -- saved any cities, so show the user some fake data. A real app in this
@@ -111,9 +110,9 @@ updateForecastCard stateRef cardData =
     foreachE (zip3 nextDays forcast ndw) updateNextDay
 
     AppState state <- readRef stateRef
-    when state.isLoading $ do
+    when state.isLoading do
       hide state.spinner
-      modifyRef stateRef $ \(AppState s) -> AppState s { isLoading = false }
+      modifyRef stateRef \(AppState s) -> AppState s { isLoading = false }
 
 updateNextDay
   :: forall e
