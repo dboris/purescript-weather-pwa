@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Foreign.Class (class IsForeign)
 import Data.Foreign.Generic (defaultOptions, readGeneric)
-import Data.Generic (class Generic, gShow)
+import Data.Generic.Rep (class Generic)
 
 
 newtype ForcastData = ForcastData
@@ -34,11 +34,11 @@ newtype WeatherCard = WeatherCard
                }
   }
 
-derive instance genericForcastData :: Generic ForcastData
-derive instance genericWeatherCard :: Generic WeatherCard
-
-instance showWeatherCard :: Show WeatherCard where
-  show = gShow
+derive instance genericForcastData :: Generic ForcastData _
+derive instance genericWeatherCard :: Generic WeatherCard _
 
 instance isForeignWeatherCard :: IsForeign WeatherCard where
-  read = readGeneric defaultOptions
+  read = readGeneric (defaultOptions { unwrapSingleConstructors = true })
+
+instance isForeignForcastData :: IsForeign ForcastData where
+  read = readGeneric (defaultOptions { unwrapSingleConstructors = true })
