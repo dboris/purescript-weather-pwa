@@ -20,7 +20,7 @@ import Data.JSDate (LOCALE, parse, toDateTime)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, fromMaybe')
 import Data.Tuple.Nested (Tuple3, get1, get2, get3)
-import Data.WeatherCard (WeatherCard, ForcastData)
+import Data.WeatherCard (WeatherCard(..), ForcastData(..))
 import Data.Zippable (zip3)
 
 import DOM (DOM)
@@ -86,7 +86,7 @@ updateForecastCard
    . Ref AppState
   -> WeatherCard
   -> Eff (console :: CONSOLE, dom :: DOM, locale :: LOCALE, now :: NOW, ref :: REF | e) Unit
-updateForecastCard stateRef cardData =
+updateForecastCard stateRef (WeatherCard cardData) =
   let dataLastUpdated = toDateTime <$> parse cardData.created  -- Maybe DT.DateTime
       key = cardData.key
       current = cardData.channel.item.condition
@@ -120,11 +120,12 @@ updateNextDay t =
   let c = get1 t
       daily = get2 t
       wd = get3 t
-  in do
-    find ".icon" c >>= setClass (getIconClass daily.code) true
-    find ".date" c >>= setText wd
-    find ".temp-high .value" c >>= (setText $ show daily.high)
-    find ".temp-low .value" c >>= (setText $ show daily.low)
+  in case daily of
+    ForcastData d -> do
+      find ".icon" c >>= setClass (getIconClass d.code) true
+      find ".date" c >>= setText wd
+      find ".temp-high .value" c >>= (setText $ show d.high)
+      find ".temp-low .value" c >>= (setText $ show d.low)
 
 getOrCreateCard
   :: forall e
@@ -226,7 +227,7 @@ getIconClass weatherCode =
 
 -- Fake data
 initialWeatherForecast :: WeatherCard
-initialWeatherForecast =
+initialWeatherForecast = WeatherCard
   { key: "2459115"
   , label: "New York, NY"
   , created: "2016-07-22T01:00:00Z"
@@ -243,13 +244,13 @@ initialWeatherForecast =
         , code: 24
         }
       , forecast: [
-          {code: 44, high: 86, low: 70}
-        , {code: 44, high: 94, low: 73}
-        , {code: 4, high: 95, low: 78}
-        , {code: 24, high: 75, low: 89}
-        , {code: 24, high: 89, low: 77}
-        , {code: 44, high: 92, low: 79}
-        , {code: 44, high: 89, low: 77}
+          ForcastData {code: 44, high: 86, low: 70}
+        , ForcastData {code: 44, high: 94, low: 73}
+        , ForcastData {code: 4, high: 95, low: 78}
+        , ForcastData {code: 24, high: 75, low: 89}
+        , ForcastData {code: 24, high: 89, low: 77}
+        , ForcastData {code: 44, high: 92, low: 79}
+        , ForcastData {code: 44, high: 89, low: 77}
         ]
       }
     , atmosphere: {humidity: 56}
@@ -261,5 +262,7 @@ initialWeatherForecast =
   }
 
 initialSelectedCity :: Array SelectedCity
-initialSelectedCity = singleton $ SelectedCity { key: initialWeatherForecast.key
-                                               , label: initialWeatherForecast.label }
+initialSelectedCity =
+  case initialWeatherForecast of
+    WeatherCard wc ->
+      pure $ SelectedCity { key: wc.key, label: wc.label }

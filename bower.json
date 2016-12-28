@@ -8,10 +8,11 @@
   ],
   "dependencies": {
     "purescript-affjax": "^3.0.2",
-    "purescript-argonaut": "^2.0.0",
     "purescript-console": "^2.0.0",
     "purescript-datetime": "^2.0.0",
     "purescript-dom": "^3.3.1",
+    "purescript-foreign": "^3.0.1",
+    "purescript-foreign-generic": "^3.0.0",
     "purescript-jquery": "^3.1.0",
     "purescript-js-date": "^3.0.0",
     "purescript-localstorage": "^3.0.1",
