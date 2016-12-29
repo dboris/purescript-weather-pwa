@@ -11,11 +11,16 @@ import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.JQuery (JQuery, append, body, clone, find, hide, on', ready, select, setAttr, setClass, setText, toArray)
 import Control.Monad.Eff.Now (NOW, nowDate)
 import Control.Monad.Eff.Ref (REF, Ref, readRef, modifyRef, newRef)
+import Control.Monad.Except (runExcept)
 
 import Data.AppState (AppState(..), CardKey, SelectedCity(..), selectedCitiesKey)
 import Data.Array (drop, elem, findIndex, index, singleton, (..))
 import Data.Date (Date, weekday)
+import Data.Either (Either(..))
 import Data.Enum (fromEnum)
+import Data.Foreign (F)
+import Data.Foreign.Generic (defaultOptions, readJSONGeneric)
+import Data.Foreign.WeatherService as WeatherService
 import Data.JSDate (LOCALE, parse, toDateTime)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, fromMaybe')
@@ -162,9 +167,10 @@ getForecast key label =
   let statement = "select * from weather.forecast where woeid=" <> key
       url = "https://query.yahooapis.com/v1/public/yql?format=json&q=" <> statement
   in void $ launchAff do
-    resp <- get url
-    liftEff $ log resp.response
-
+    request <- get url
+    case runExcept (readJSONGeneric defaultOptions request.response :: F WeatherService.Response) of
+      Right r -> liftEff $ log $ show r
+      Left err -> liftEff $ log $ show err
 
 -- | Save list of cities to localStorage.
 saveSelectedCities
