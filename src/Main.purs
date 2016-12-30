@@ -98,6 +98,7 @@ updateForecastCard stateRef cardData =
       forcast = cardData.channel.item.forecast
   in do
     card <- getOrCreateCard stateRef key
+    find "> .location" card >>= setText cardData.label
     find "> .description" card >>= setText current.text
     find "> .date" card >>= setText current.date
     find ".current .icon" card >>= setClass (getIconClass current.code) true
