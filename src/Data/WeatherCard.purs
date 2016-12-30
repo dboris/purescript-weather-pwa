@@ -1,14 +1,15 @@
 module Data.WeatherCard where
 
-import Prelude (bind, pure)
+import Prelude (bind, pure, ($), (<$>))
 
 import Data.AppState (CardKey)
 import Data.Foreign.WeatherService
 import Data.Int as Int
 import Data.Maybe (Maybe)
+import Data.Traversable (sequenceDefault)
 
 
-type ForcastData =
+type ForecastData =
   { code :: Int
   , high :: Int
   , low :: Int
@@ -23,7 +24,7 @@ type WeatherChannel =
                            , temp :: Int
                            , code :: Int
                            }
-            , forecast :: Array ForcastData
+            , forecast :: Array ForecastData
             }
   , atmosphere :: { humidity :: Int }
   , wind :: { speed :: Int
@@ -37,6 +38,13 @@ type WeatherCard =
   , created :: String
   , channel :: WeatherChannel
   }
+
+fromDailyForecast :: DailyForecast -> Maybe ForecastData
+fromDailyForecast (DailyForecast d) = do
+  code <- Int.fromString d.code
+  high <- Int.fromString d.high
+  low <- Int.fromString d.low
+  pure {code, high, low}
 
 fromWeatherService :: CardKey -> String -> Response -> Maybe WeatherCard
 fromWeatherService key label (Response { query }) =
@@ -61,6 +69,7 @@ fromWeatherService key label (Response { query }) =
                                   humidity' <- Int.fromString humidity
                                   speed' <- Int.fromString speed
                                   direction' <- Int.fromString direction
+                                  forecast' <- sequenceDefault $ fromDailyForecast <$> forecast
                                   pure { key
                                        , label
                                        , created
@@ -72,7 +81,7 @@ fromWeatherService key label (Response { query }) =
                                                                        , temp: temp'
                                                                        , code: code'
                                                                        }
-                                                          , forecast: []
+                                                          , forecast: forecast'
                                                           }
                                                   , atmosphere: { humidity: humidity' }
                                                   , wind: { speed: speed'
