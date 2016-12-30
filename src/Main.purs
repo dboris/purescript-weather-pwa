@@ -25,7 +25,7 @@ import Data.JSDate (LOCALE, parse, toDateTime)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, fromMaybe')
 import Data.Tuple.Nested (Tuple3, get1, get2, get3)
-import Data.WeatherCard (WeatherCard, ForcastData)
+import Data.WeatherCard (WeatherCard, ForcastData, fromWeatherService)
 import Data.Zippable (zip3)
 
 import DOM (DOM)
@@ -166,10 +166,13 @@ getForecast
 getForecast key label =
   let statement = "select * from weather.forecast where woeid=" <> key
       url = "https://query.yahooapis.com/v1/public/yql?format=json&q=" <> statement
+      readOpts = defaultOptions { unwrapSingleConstructors = true }
   in void $ launchAff do
     request <- get url
-    case runExcept (readJSONGeneric defaultOptions request.response :: F WeatherService.Response) of
-      Right r -> liftEff $ log $ show r
+    case runExcept (readJSONGeneric readOpts request.response :: F WeatherService.Response) of
+      Right response ->
+        let cardData = fromWeatherService key label response
+        in liftEff $ log "done"
       Left err -> liftEff $ log $ show err
 
 -- | Save list of cities to localStorage.

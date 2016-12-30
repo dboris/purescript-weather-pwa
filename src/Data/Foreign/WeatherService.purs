@@ -33,22 +33,22 @@ newtype Item = Item
   , forecast :: Array DailyForecast }
 
 newtype Atmosphere = Atmosphere
-  { humidity :: Int }
+  { humidity :: String }
 
 newtype Wind = Wind
-  { speed :: Int
-  , direction :: Int }
+  { speed :: String
+  , direction :: String }
 
 newtype Condition = Condition
   { text :: String
   , date :: String
-  , temp :: Int
-  , code :: Int }
+  , temp :: String
+  , code :: String }
 
 newtype DailyForecast = DailyForecast
-  { code :: Int
-  , high :: Int
-  , low :: Int }
+  { code :: String
+  , high :: String
+  , low :: String }
 
 derive instance genericResponse :: Generic Response _
 derive instance genericQuery :: Generic Query _
