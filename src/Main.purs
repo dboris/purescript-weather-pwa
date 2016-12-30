@@ -71,7 +71,7 @@ main = ready $ do
 
   case storedSelectedCities of
     Just cities ->
-      foreachE cities \(SelectedCity {key, label}) -> getForecast key label
+      foreachE cities \(SelectedCity { key, label }) -> getForecast stateRef key label
     Nothing -> do
       -- The user is using the app for the first time, or the user has not
       -- saved any cities, so show the user some fake data. A real app in this
@@ -160,20 +160,29 @@ getOrCreateCard stateRef key = do
 -- | freshest data.
 getForecast
   :: forall e
-   . CardKey
+   . Ref AppState
+  -> CardKey
   -> String
-  -> Eff (ajax :: AJAX, console :: CONSOLE, err :: EXCEPTION | e) Unit
-getForecast key label =
+  -> Eff ( ajax :: AJAX
+         , console :: CONSOLE
+         , err :: EXCEPTION
+         , dom :: DOM
+         , locale :: LOCALE
+         , now :: NOW
+         , ref :: REF
+         | e) Unit
+getForecast stateRef key label =
   let statement = "select * from weather.forecast where woeid=" <> key
       url = "https://query.yahooapis.com/v1/public/yql?format=json&q=" <> statement
       readOpts = defaultOptions { unwrapSingleConstructors = true }
   in void $ launchAff do
     request <- get url
     case runExcept (readJSONGeneric readOpts request.response :: F WeatherService.Response) of
+      Left err -> liftEff $ log (show err)
       Right response ->
-        let cardData = fromWeatherService key label response
-        in liftEff $ log "done"
-      Left err -> liftEff $ log $ show err
+        case fromWeatherService key label response of
+          Just cardData -> liftEff $ updateForecastCard stateRef cardData
+          Nothing -> liftEff $ log "Bad weather service response"
 
 -- | Save list of cities to localStorage.
 saveSelectedCities
