@@ -14,7 +14,7 @@ import Control.Monad.Eff.Ref (REF, Ref, readRef, modifyRef, newRef)
 import Control.Monad.Except (runExcept)
 
 import Data.AppState (AppState(..), CardKey, SelectedCity(..), selectedCitiesKey)
-import Data.Array (drop, elem, findIndex, index, singleton, (..))
+import Data.Array (drop, elem, findIndex, index, singleton, snoc, (..))
 import Data.Date (Date, weekday)
 import Data.Either (Either(..))
 import Data.Enum (fromEnum)
@@ -156,7 +156,7 @@ getOrCreateCard
   :: forall e
    . Ref AppState
   -> CardKey
-  -> Eff (dom :: DOM, ref :: REF | e) JQuery
+  -> Eff (console :: CONSOLE, dom :: DOM, ref :: REF | e) JQuery
 getOrCreateCard stateRef key = do
   AppState state <- readRef stateRef
   case Map.lookup key state.visibleCards of
@@ -184,6 +184,7 @@ addSelectedCity :: forall e
          , locale :: LOCALE
          , now :: NOW
          , ref :: REF
+         , storage :: STORAGE
          | e) Unit
 addSelectedCity stateRef citiesSelect addDialog = do
   selectedOpt <- find "option:selected" citiesSelect
@@ -193,6 +194,8 @@ addSelectedCity stateRef citiesSelect addDialog = do
     Left err -> log $ show err
     Right key -> do
       getForecast stateRef key label
+      modifyRef stateRef $ storeSelectedCity $ SelectedCity { key, label }
+      saveSelectedCities stateRef
       toggleAddDialog false addDialog
 
 
@@ -257,6 +260,10 @@ nextDaysOfWeek = do
 addCardForKey :: CardKey -> JQuery -> AppState -> AppState
 addCardForKey key card (AppState state) =
   AppState state { visibleCards = Map.insert key card state.visibleCards }
+
+storeSelectedCity :: SelectedCity -> AppState -> AppState
+storeSelectedCity city (AppState state) =
+  AppState state { selectedCities = snoc state.selectedCities city }
 
 -- | Weather codes: https://developer.yahoo.com/weather/documentation.html#codes
 weatherCodes :: Array (Array Int)
