@@ -8,7 +8,7 @@ import Control.Monad.Eff (Eff, foreachE)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Eff.Exception (EXCEPTION)
-import Control.Monad.Eff.JQuery (JQuery, append, body, clone, find, getText, hide, on', ready, select, setAttr, setClass, setText, toArray)
+import Control.Monad.Eff.JQuery (JQuery, append, body, clone, find, getText, getValue, hide, on', ready, select, setAttr, setClass, setText, toArray)
 import Control.Monad.Eff.Now (NOW, nowDate)
 import Control.Monad.Eff.Ref (REF, Ref, readRef, modifyRef, newRef)
 import Control.Monad.Except (runExcept)
@@ -18,7 +18,7 @@ import Data.Array (drop, elem, findIndex, index, singleton, (..))
 import Data.Date (Date, weekday)
 import Data.Either (Either(..))
 import Data.Enum (fromEnum)
-import Data.Foreign (F)
+import Data.Foreign (F, readString)
 import Data.Foreign.Generic (defaultOptions, readJSONGeneric)
 import Data.Foreign.WeatherService as WeatherService
 import Data.JSDate (LOCALE, parse, toDateTime)
@@ -52,9 +52,8 @@ main = ready $ do
   cardTemplate <- select ".cardTemplate"
   container <- select ".main"
   addDialog <- select ".dialog-container"
-
+  citiesSelect <- select "#selectCityToAdd"
   body <- body
-  on' "click" "#butAdd" (\_ _ -> toggleAddDialog true addDialog) body
 
   localStorage <- getLocalStorage
   storedSelectedCities <- getItem localStorage selectedCitiesKey
@@ -68,6 +67,10 @@ main = ready $ do
                                 , cardTemplate
                                 , container
                                 , addDialog }
+
+  on' "click" "#butAdd" (\_ _ -> toggleAddDialog true addDialog) body
+  on' "click" "#butAddCancel" (\_ _ -> toggleAddDialog false addDialog) body
+  on' "click" "#butAddCity" (\_ _ -> addSelectedCity stateRef citiesSelect addDialog) body
 
   case storedSelectedCities of
     Just cities ->
@@ -104,48 +107,50 @@ updateForecastCard stateRef cardData = do
 
   if dataIsOld
     then log $ "Old data: " <> cardLastUpdatedStr <> ", " <> cardData.created
-    else
-      let channel = cardData.channel
-          astronomy = channel.astronomy
-          current = channel.item.condition
-          forcast = channel.item.forecast
-          humidity = channel.atmosphere.humidity
-          wind = channel.wind
-      in do
-        setText cardData.created cardLastUpdatedElem
-        find "> .location" card >>= setText cardData.label
-        find "> .description" card >>= setText current.text
-        find "> .date" card >>= setText current.date
-        find ".current .icon" card >>= setClass (getIconClass current.code) true
-        find ".current .temperature .value" card >>= (setText $ show current.temp)
-        find ".current .sunrise" card >>= setText astronomy.sunrise
-        find ".current .sunset" card >>= setText astronomy.sunset
-        find ".current .humidity" card >>= (setText $ show humidity <> "%")
-        find ".current .wind .value" card >>= (setText $ show wind.speed)
-        find ".current .wind .direction" card >>= (setText $ show wind.direction)
+    else do
+      setText cardData.created cardLastUpdatedElem
+      find "> .location" card >>= setText cardData.label
+      find "> .description" card >>= setText current.text
+      find "> .date" card >>= setText current.date
+      find ".current .icon" card >>= setClass (getIconClass current.code) true
+      find ".current .temperature .value" card >>= (setText $ show current.temp)
+      find ".current .sunrise" card >>= setText astronomy.sunrise
+      find ".current .sunset" card >>= setText astronomy.sunset
+      find ".current .humidity" card >>= (setText $ show humidity <> "%")
+      find ".current .wind .value" card >>= (setText $ show wind.speed)
+      find ".current .wind .direction" card >>= (setText $ show wind.direction)
 
-        nextDays <- find ".future .oneday" card >>= toArray
-        ndw <- nextDaysOfWeek
-        foreachE (zip3 nextDays forcast ndw) updateNextDay
+      nextDays <- find ".future .oneday" card >>= toArray
+      ndw <- nextDaysOfWeek
+      foreachE (zip3 nextDays forcast ndw) updateNextDay
 
-        AppState state <- readRef stateRef
-        when state.isLoading do
-          hide state.spinner
-          modifyRef stateRef \(AppState s) -> AppState s { isLoading = false }
+      AppState state <- readRef stateRef
+      when state.isLoading do
+        hide state.spinner
+        modifyRef stateRef \(AppState s) -> AppState s { isLoading = false }
+
+      where
+        channel = cardData.channel
+        astronomy = channel.astronomy
+        current = channel.item.condition
+        forcast = channel.item.forecast
+        humidity = channel.atmosphere.humidity
+        wind = channel.wind
+
 
 updateNextDay
   :: forall e
    . Tuple3 JQuery ForecastData WeekDay
   -> Eff (dom :: DOM | e) Unit
-updateNextDay t =
-  let c = get1 t
-      daily = get2 t
-      wd = get3 t
-  in do
-    find ".icon" c >>= setClass (getIconClass daily.code) true
-    find ".date" c >>= setText wd
-    find ".temp-high .value" c >>= (setText $ show daily.high)
-    find ".temp-low .value" c >>= (setText $ show daily.low)
+updateNextDay t = do
+  find ".icon" c >>= setClass (getIconClass daily.code) true
+  find ".date" c >>= setText wd
+  find ".temp-high .value" c >>= (setText $ show daily.high)
+  find ".temp-low .value" c >>= (setText $ show daily.low)
+  where
+    c = get1 t
+    daily = get2 t
+    wd = get3 t
 
 getOrCreateCard
   :: forall e
@@ -167,6 +172,28 @@ getOrCreateCard stateRef key = do
 
 toggleAddDialog :: forall e. Boolean -> JQuery -> Eff (dom :: DOM | e) Unit
 toggleAddDialog visible = setClass "dialog-container--visible" visible
+
+addSelectedCity :: forall e
+   . Ref AppState
+  -> JQuery
+  -> JQuery
+  -> Eff ( ajax :: AJAX
+         , console :: CONSOLE
+         , err :: EXCEPTION
+         , dom :: DOM
+         , locale :: LOCALE
+         , now :: NOW
+         , ref :: REF
+         | e) Unit
+addSelectedCity stateRef citiesSelect addDialog = do
+  selectedOpt <- find "option:selected" citiesSelect
+  label <- getText selectedOpt
+  value <- getValue selectedOpt
+  case runExcept $ readString value of
+    Left err -> log $ show err
+    Right key -> do
+      getForecast stateRef key label
+      toggleAddDialog false addDialog
 
 
 -- Methods for dealing with the model --
