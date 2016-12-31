@@ -96,46 +96,44 @@ updateForecastCard stateRef cardData =
   let key = cardData.key
       current = cardData.channel.item.condition
       forcast = cardData.channel.item.forecast
+      astronomy = cardData.channel.astronomy
   in do
     card <- getOrCreateCard stateRef key
     cardLastUpdatedElem <- find "> .card-last-updated" card
     cardLastUpdatedStr <- getText cardLastUpdatedElem
 
     dataIsOld <- if cardLastUpdatedStr == ""
-      then pure Nothing
+      then pure false
       else do
         dataLastUpdatedJSDate <- parse cardData.created
         cardLastUpdatedJSDate <- parse cardLastUpdatedStr
         pure $ let dataLastUpdated = unsafePartial $ fromJust (toDateTime dataLastUpdatedJSDate)
                    cardLastUpdated = unsafePartial $ fromJust (toDateTime cardLastUpdatedJSDate)
-               in Just (cardLastUpdated > dataLastUpdated)
+               in cardLastUpdated > dataLastUpdated
 
-    let updateCard = do
-          setText cardData.created cardLastUpdatedElem
-          find "> .location" card >>= setText cardData.label
-          find "> .description" card >>= setText current.text
-          find "> .date" card >>= setText current.date
-          find ".current .icon" card >>= setClass (getIconClass current.code) true
-          find ".current .temperature .value" card >>= (setText $ show current.temp)
-          find ".current .sunrise" card >>= setText cardData.channel.astronomy.sunrise
-          find ".current .sunset" card >>= setText cardData.channel.astronomy.sunset
-          find ".current .humidity" card >>= (setText $ show cardData.channel.atmosphere.humidity <> "%")
-          find ".current .wind .value" card >>= (setText $ show cardData.channel.wind.speed)
-          find ".current .wind .direction" card >>= (setText $ show cardData.channel.wind.direction)
+    if dataIsOld
+      then log $ "Old data: " <> cardLastUpdatedStr <> ", " <> cardData.created
+      else do
+        setText cardData.created cardLastUpdatedElem
+        find "> .location" card >>= setText cardData.label
+        find "> .description" card >>= setText current.text
+        find "> .date" card >>= setText current.date
+        find ".current .icon" card >>= setClass (getIconClass current.code) true
+        find ".current .temperature .value" card >>= (setText $ show current.temp)
+        find ".current .sunrise" card >>= setText astronomy.sunrise
+        find ".current .sunset" card >>= setText astronomy.sunset
+        find ".current .humidity" card >>= (setText $ show cardData.channel.atmosphere.humidity <> "%")
+        find ".current .wind .value" card >>= (setText $ show cardData.channel.wind.speed)
+        find ".current .wind .direction" card >>= (setText $ show cardData.channel.wind.direction)
 
-          nextDays <- find ".future .oneday" card >>= toArray
-          ndw <- nextDaysOfWeek
-          foreachE (zip3 nextDays forcast ndw) updateNextDay
+        nextDays <- find ".future .oneday" card >>= toArray
+        ndw <- nextDaysOfWeek
+        foreachE (zip3 nextDays forcast ndw) updateNextDay
 
-          AppState state <- readRef stateRef
-          when state.isLoading do
-            hide state.spinner
-            modifyRef stateRef \(AppState s) -> AppState s { isLoading = false }
-
-    case dataIsOld of
-      Just true -> log $ "Not updating: " <> cardLastUpdatedStr <> ", " <> cardData.created
-      Just false -> updateCard
-      Nothing -> updateCard
+        AppState state <- readRef stateRef
+        when state.isLoading do
+          hide state.spinner
+          modifyRef stateRef \(AppState s) -> AppState s { isLoading = false }
 
 updateNextDay
   :: forall e
