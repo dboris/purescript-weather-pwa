@@ -107,9 +107,9 @@ updateForecastCard stateRef cardData =
       else do
         dataLastUpdatedJSDate <- parse cardData.created
         cardLastUpdatedJSDate <- parse cardLastUpdatedStr
-        pure $ let dataLastUpdated = unsafePartial $ fromJust (toDateTime dataLastUpdatedJSDate)
-                   cardLastUpdated = unsafePartial $ fromJust (toDateTime cardLastUpdatedJSDate)
-               in cardLastUpdated > dataLastUpdated
+        let dataLastUpdated = unsafePartial $ fromJust (toDateTime dataLastUpdatedJSDate)
+        let cardLastUpdated = unsafePartial $ fromJust (toDateTime cardLastUpdatedJSDate)
+        pure $ cardLastUpdated > dataLastUpdated
 
     if dataIsOld
       then log $ "Old data: " <> cardLastUpdatedStr <> ", " <> cardData.created
