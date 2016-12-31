@@ -8,7 +8,7 @@ import Control.Monad.Eff (Eff, foreachE)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Eff.Exception (EXCEPTION)
-import Control.Monad.Eff.JQuery (JQuery, append, body, clone, find, hide, on', ready, select, setAttr, setClass, setText, toArray)
+import Control.Monad.Eff.JQuery (JQuery, append, body, clone, find, getText, hide, on', ready, select, setAttr, setClass, setText, toArray)
 import Control.Monad.Eff.Now (NOW, nowDate)
 import Control.Monad.Eff.Ref (REF, Ref, readRef, modifyRef, newRef)
 import Control.Monad.Except (runExcept)
@@ -23,13 +23,14 @@ import Data.Foreign.Generic (defaultOptions, readJSONGeneric)
 import Data.Foreign.WeatherService as WeatherService
 import Data.JSDate (LOCALE, parse, toDateTime)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe, fromMaybe')
+import Data.Maybe (Maybe(..), fromJust, fromMaybe, fromMaybe')
 import Data.Tuple.Nested (Tuple3, get1, get2, get3)
 import Data.WeatherCard (WeatherCard, ForecastData, fromWeatherService)
 import Data.Zippable (zip3)
 
 import DOM (DOM)
 import DOM.WebStorage (STORAGE, getItem, setItem, getLocalStorage)
+import Partial.Unsafe (unsafePartial)
 
 import Network.HTTP.Affjax (AJAX, get)
 
@@ -92,31 +93,49 @@ updateForecastCard
   -> WeatherCard
   -> Eff (console :: CONSOLE, dom :: DOM, locale :: LOCALE, now :: NOW, ref :: REF | e) Unit
 updateForecastCard stateRef cardData =
-  let dataLastUpdated = toDateTime <$> parse cardData.created  -- Maybe DT.DateTime
-      key = cardData.key
+  let key = cardData.key
       current = cardData.channel.item.condition
       forcast = cardData.channel.item.forecast
   in do
     card <- getOrCreateCard stateRef key
-    find "> .location" card >>= setText cardData.label
-    find "> .description" card >>= setText current.text
-    find "> .date" card >>= setText current.date
-    find ".current .icon" card >>= setClass (getIconClass current.code) true
-    find ".current .temperature .value" card >>= (setText $ show current.temp)
-    find ".current .sunrise" card >>= setText cardData.channel.astronomy.sunrise
-    find ".current .sunset" card >>= setText cardData.channel.astronomy.sunset
-    find ".current .humidity" card >>= (setText $ show cardData.channel.atmosphere.humidity <> "%")
-    find ".current .wind .value" card >>= (setText $ show cardData.channel.wind.speed)
-    find ".current .wind .direction" card >>= (setText $ show cardData.channel.wind.direction)
+    cardLastUpdatedElem <- find "> .card-last-updated" card
+    cardLastUpdatedStr <- getText cardLastUpdatedElem
 
-    nextDays <- find ".future .oneday" card >>= toArray
-    ndw <- nextDaysOfWeek
-    foreachE (zip3 nextDays forcast ndw) updateNextDay
+    dataIsOld <- if cardLastUpdatedStr == ""
+      then pure Nothing
+      else do
+        dataLastUpdatedJSDate <- parse cardData.created
+        cardLastUpdatedJSDate <- parse cardLastUpdatedStr
+        pure $ let dataLastUpdated = unsafePartial $ fromJust (toDateTime dataLastUpdatedJSDate)
+                   cardLastUpdated = unsafePartial $ fromJust (toDateTime cardLastUpdatedJSDate)
+               in Just (cardLastUpdated > dataLastUpdated)
 
-    AppState state <- readRef stateRef
-    when state.isLoading do
-      hide state.spinner
-      modifyRef stateRef \(AppState s) -> AppState s { isLoading = false }
+    let updateCard = do
+          setText cardData.created cardLastUpdatedElem
+          find "> .location" card >>= setText cardData.label
+          find "> .description" card >>= setText current.text
+          find "> .date" card >>= setText current.date
+          find ".current .icon" card >>= setClass (getIconClass current.code) true
+          find ".current .temperature .value" card >>= (setText $ show current.temp)
+          find ".current .sunrise" card >>= setText cardData.channel.astronomy.sunrise
+          find ".current .sunset" card >>= setText cardData.channel.astronomy.sunset
+          find ".current .humidity" card >>= (setText $ show cardData.channel.atmosphere.humidity <> "%")
+          find ".current .wind .value" card >>= (setText $ show cardData.channel.wind.speed)
+          find ".current .wind .direction" card >>= (setText $ show cardData.channel.wind.direction)
+
+          nextDays <- find ".future .oneday" card >>= toArray
+          ndw <- nextDaysOfWeek
+          foreachE (zip3 nextDays forcast ndw) updateNextDay
+
+          AppState state <- readRef stateRef
+          when state.isLoading do
+            hide state.spinner
+            modifyRef stateRef \(AppState s) -> AppState s { isLoading = false }
+
+    case dataIsOld of
+      Just true -> log $ "Not updating: " <> cardLastUpdatedStr <> ", " <> cardData.created
+      Just false -> updateCard
+      Nothing -> updateCard
 
 updateNextDay
   :: forall e
