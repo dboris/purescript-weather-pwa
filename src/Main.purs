@@ -30,9 +30,8 @@ import Data.Zippable (zip3)
 
 import DOM (DOM)
 import DOM.WebStorage (STORAGE, getItem, setItem, getLocalStorage)
-import Partial.Unsafe (unsafePartial)
-
 import Network.HTTP.Affjax (AJAX, get)
+import Partial.Unsafe (unsafePartial)
 
 foreign import test :: Int
 
@@ -84,36 +83,35 @@ main = ready $ do
 
 -- Methods to update/refresh the UI --
 
-toggleAddDialog :: forall e. Boolean -> JQuery -> Eff (dom :: DOM | e) Unit
-toggleAddDialog visible = setClass "dialog-container--visible" visible
-
 updateForecastCard
   :: forall e
    . Ref AppState
   -> WeatherCard
   -> Eff (console :: CONSOLE, dom :: DOM, locale :: LOCALE, now :: NOW, ref :: REF | e) Unit
-updateForecastCard stateRef cardData =
-  let key = cardData.key
-      current = cardData.channel.item.condition
-      forcast = cardData.channel.item.forecast
-      astronomy = cardData.channel.astronomy
-  in do
-    card <- getOrCreateCard stateRef key
-    cardLastUpdatedElem <- find "> .card-last-updated" card
-    cardLastUpdatedStr <- getText cardLastUpdatedElem
+updateForecastCard stateRef cardData = do
+  card <- getOrCreateCard stateRef cardData.key
+  cardLastUpdatedElem <- find "> .card-last-updated" card
+  cardLastUpdatedStr <- getText cardLastUpdatedElem
 
-    dataIsOld <- if cardLastUpdatedStr == ""
-      then pure false
-      else do
-        dataLastUpdatedJSDate <- parse cardData.created
-        cardLastUpdatedJSDate <- parse cardLastUpdatedStr
-        let dataLastUpdated = unsafePartial $ fromJust (toDateTime dataLastUpdatedJSDate)
-        let cardLastUpdated = unsafePartial $ fromJust (toDateTime cardLastUpdatedJSDate)
-        pure $ cardLastUpdated > dataLastUpdated
+  dataIsOld <- if cardLastUpdatedStr == ""
+    then pure false
+    else do
+      dataLastUpdatedJSDate <- parse cardData.created
+      cardLastUpdatedJSDate <- parse cardLastUpdatedStr
+      let dataLastUpdated = unsafePartial $ fromJust (toDateTime dataLastUpdatedJSDate)
+      let cardLastUpdated = unsafePartial $ fromJust (toDateTime cardLastUpdatedJSDate)
+      pure $ cardLastUpdated > dataLastUpdated
 
-    if dataIsOld
-      then log $ "Old data: " <> cardLastUpdatedStr <> ", " <> cardData.created
-      else do
+  if dataIsOld
+    then log $ "Old data: " <> cardLastUpdatedStr <> ", " <> cardData.created
+    else
+      let channel = cardData.channel
+          astronomy = channel.astronomy
+          current = channel.item.condition
+          forcast = channel.item.forecast
+          humidity = channel.atmosphere.humidity
+          wind = channel.wind
+      in do
         setText cardData.created cardLastUpdatedElem
         find "> .location" card >>= setText cardData.label
         find "> .description" card >>= setText current.text
@@ -122,9 +120,9 @@ updateForecastCard stateRef cardData =
         find ".current .temperature .value" card >>= (setText $ show current.temp)
         find ".current .sunrise" card >>= setText astronomy.sunrise
         find ".current .sunset" card >>= setText astronomy.sunset
-        find ".current .humidity" card >>= (setText $ show cardData.channel.atmosphere.humidity <> "%")
-        find ".current .wind .value" card >>= (setText $ show cardData.channel.wind.speed)
-        find ".current .wind .direction" card >>= (setText $ show cardData.channel.wind.direction)
+        find ".current .humidity" card >>= (setText $ show humidity <> "%")
+        find ".current .wind .value" card >>= (setText $ show wind.speed)
+        find ".current .wind .direction" card >>= (setText $ show wind.direction)
 
         nextDays <- find ".future .oneday" card >>= toArray
         ndw <- nextDaysOfWeek
@@ -166,6 +164,9 @@ getOrCreateCard stateRef key = do
       append newCard state.container
       modifyRef stateRef $ addCardForKey key newCard
       pure newCard
+
+toggleAddDialog :: forall e. Boolean -> JQuery -> Eff (dom :: DOM | e) Unit
+toggleAddDialog visible = setClass "dialog-container--visible" visible
 
 
 -- Methods for dealing with the model --
