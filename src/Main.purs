@@ -71,6 +71,7 @@ main = ready $ do
   on' "click" "#butAdd" (\_ _ -> toggleAddDialog true addDialog) body
   on' "click" "#butAddCancel" (\_ _ -> toggleAddDialog false addDialog) body
   on' "click" "#butAddCity" (\_ _ -> addSelectedCity stateRef citiesSelect addDialog) body
+  on' "click" "#butRefresh" (\_ _ -> updateForecasts stateRef) body
 
   case storedSelectedCities of
     Just cities ->
@@ -232,6 +233,23 @@ getForecast stateRef key label =
         case fromWeatherService key label response of
           Just cardData -> liftEff $ updateForecastCard stateRef cardData
           Nothing -> liftEff $ log "Bad weather service response"
+
+-- | Iterate all of the cards and attempt to get the latest forecast data.
+updateForecasts
+  :: forall e
+   . Ref AppState
+  -> Eff ( ajax :: AJAX
+         , console :: CONSOLE
+         , dom :: DOM
+         , err :: EXCEPTION
+         , locale :: LOCALE
+         , now :: NOW
+         , ref :: REF
+         | e
+         ) Unit
+updateForecasts stateRef = do
+  AppState state <- readRef stateRef
+  foreachE state.selectedCities \(SelectedCity { key, label }) -> getForecast stateRef key label
 
 -- | Save list of cities to localStorage.
 saveSelectedCities
