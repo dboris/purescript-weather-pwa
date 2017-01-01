@@ -6,3 +6,4 @@
 /.psa*
 /src/.webpack.js
 /static/bundle.js
+/static/worker.js

@@ -32,6 +32,7 @@ import DOM (DOM)
 import DOM.WebStorage (STORAGE, getItem, setItem, getLocalStorage)
 import Network.HTTP.Affjax (AJAX, get)
 import Partial.Unsafe (unsafePartial)
+import WebWorker (OwnsWW, mkWorker)
 
 foreign import test :: Int
 
@@ -44,45 +45,47 @@ main :: forall e. Eff ( ajax :: AJAX
                       , err :: EXCEPTION
                       , locale :: LOCALE
                       , now :: NOW
+                      , ownsww :: OwnsWW
                       , ref :: REF
                       , storage :: STORAGE
                       | e ) Unit
-main = ready $ do
-  spinner <- select ".loader"
-  cardTemplate <- select ".cardTemplate"
-  container <- select ".main"
-  addDialog <- select ".dialog-container"
-  citiesSelect <- select "#selectCityToAdd"
-  body <- body
-
+main = do
+  worker <- mkWorker "worker.js"
   localStorage <- getLocalStorage
   storedSelectedCities <- getItem localStorage selectedCitiesKey
-
   let selectedCities = fromMaybe' (\_ -> initialSelectedCity) storedSelectedCities
 
-  stateRef <- newRef $ AppState { isLoading: true
-                                , visibleCards: Map.empty
-                                , selectedCities
-                                , spinner
-                                , cardTemplate
-                                , container
-                                , addDialog }
+  ready $ do
+    spinner <- select ".loader"
+    cardTemplate <- select ".cardTemplate"
+    container <- select ".main"
+    addDialog <- select ".dialog-container"
+    citiesSelect <- select "#selectCityToAdd"
+    body <- body
 
-  on' "click" "#butAdd" (\_ _ -> toggleAddDialog true addDialog) body
-  on' "click" "#butAddCancel" (\_ _ -> toggleAddDialog false addDialog) body
-  on' "click" "#butAddCity" (\_ _ -> addSelectedCity stateRef citiesSelect addDialog) body
-  on' "click" "#butRefresh" (\_ _ -> updateForecasts stateRef) body
+    stateRef <- newRef $ AppState { isLoading: true
+                                  , visibleCards: Map.empty
+                                  , selectedCities
+                                  , spinner
+                                  , cardTemplate
+                                  , container
+                                  , addDialog }
 
-  case storedSelectedCities of
-    Just cities ->
-      foreachE cities \(SelectedCity { key, label }) -> getForecast stateRef key label
-    Nothing -> do
-      -- The user is using the app for the first time, or the user has not
-      -- saved any cities, so show the user some fake data. A real app in this
-      -- scenario could guess the user's location via IP lookup and then inject
-      -- that data into the page.
-      updateForecastCard stateRef initialWeatherForecast
-      saveSelectedCities stateRef
+    on' "click" "#butAdd" (\_ _ -> toggleAddDialog true addDialog) body
+    on' "click" "#butAddCancel" (\_ _ -> toggleAddDialog false addDialog) body
+    on' "click" "#butAddCity" (\_ _ -> addSelectedCity stateRef citiesSelect addDialog) body
+    on' "click" "#butRefresh" (\_ _ -> updateForecasts stateRef) body
+
+    case storedSelectedCities of
+      Just cities ->
+        foreachE cities \(SelectedCity { key, label }) -> getForecast stateRef key label
+      Nothing -> do
+        -- The user is using the app for the first time, or the user has not
+        -- saved any cities, so show the user some fake data. A real app in this
+        -- scenario could guess the user's location via IP lookup and then inject
+        -- that data into the page.
+        updateForecastCard stateRef initialWeatherForecast
+        saveSelectedCities stateRef
 
 
 -- Methods to update/refresh the UI --
