@@ -3,7 +3,7 @@ module Main where
 import Prelude hiding (append)
 
 import Control.Comonad (extract)
-import Control.Monad.Aff (launchAff)
+import Control.Monad.Aff (attempt, launchAff)
 import Control.Monad.Eff (Eff, foreachE)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE, log)
@@ -233,13 +233,20 @@ getForecast stateRef key label =
       url = "https://query.yahooapis.com/v1/public/yql?format=json&q=" <> statement
       readOpts = defaultOptions { unwrapSingleConstructors = true }
   in void $ launchAff do
-    request <- get url
-    case runExcept (readJSONGeneric readOpts request.response :: F WeatherService.Response) of
-      Left err -> liftEff $ log (show err)
-      Right response ->
-        case fromWeatherService key label response of
-          Just cardData -> liftEff $ updateForecastCard stateRef cardData
-          Nothing -> liftEff $ log "Bad weather service response"
+    requestAttempt <- attempt $ get url
+    case requestAttempt of
+      Left err ->
+        liftEff $ updateForecastCard stateRef initialWeatherForecast
+      Right request ->
+        case runExcept (readJSONGeneric readOpts request.response :: F WeatherService.Response) of
+          Left err ->
+            liftEff $ log (show err)
+          Right response ->
+            case fromWeatherService key label response of
+              Just cardData ->
+                liftEff $ updateForecastCard stateRef cardData
+              Nothing ->
+                liftEff $ log "Bad weather service response"
 
 -- | Iterate all of the cards and attempt to get the latest forecast data.
 updateForecasts
