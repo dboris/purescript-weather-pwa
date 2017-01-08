@@ -5,5 +5,5 @@
 /.psc*
 /.psa*
 /src/.webpack.js
-/static/bundle.js
+/static/main.js
 /static/worker.js

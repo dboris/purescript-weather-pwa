@@ -10,6 +10,9 @@ an example of how to use PureScript for:
 * AJAX requests
 * JSON parsing
 * Persisting data in local storage
+* Caching files in cache storage
+* Using service workers
+
 ...
 
 ## Installation
@@ -17,7 +20,9 @@ an example of how to use PureScript for:
 ```
 bower install
 npm install
-pulp browserify --to static/bundle.js
+pulp build --main Main --to static/main.js
+pulp build --main Worker --to static/worker.js
+open static/index.html
 ```
 
 ## TODO

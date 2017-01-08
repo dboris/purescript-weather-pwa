@@ -29,28 +29,32 @@ import Data.WeatherCard (WeatherCard, ForecastData, fromWeatherService)
 import Data.Zippable (zip3)
 
 import DOM (DOM)
+import DOM.Types (URL)
+import DOM.ServiceWorker (SERVICE_WORKER_CLIENT)
+import DOM.ServiceWorker as ServiceWorker
 import DOM.WebStorage (STORAGE, getItem, setItem, getLocalStorage)
+
 import Network.HTTP.Affjax (AJAX, get)
 import Partial.Unsafe (unsafePartial)
-import WebWorker (OwnsWW, mkWorker)
-
-foreign import test :: Int
-
 
 type WeekDay = String
 
-main :: forall e. Eff ( ajax :: AJAX
-                      , console :: CONSOLE
-                      , dom :: DOM
-                      , err :: EXCEPTION
-                      , locale :: LOCALE
-                      , now :: NOW
-                      , ownsww :: OwnsWW
-                      , ref :: REF
-                      , storage :: STORAGE
-                      | e ) Unit
+serviceWorkerURL :: URL
+serviceWorkerURL = "worker.js"
+
+main :: forall e
+  . Eff ( ajax :: AJAX
+        , console :: CONSOLE
+        , dom :: DOM
+        , err :: EXCEPTION
+        , locale :: LOCALE
+        , now :: NOW
+        , ref :: REF
+        , storage :: STORAGE
+        , swclient :: SERVICE_WORKER_CLIENT
+        | e ) Unit
 main = do
-  worker <- mkWorker "worker.js"
+  launchAff $ ServiceWorker.register serviceWorkerURL
   localStorage <- getLocalStorage
   storedSelectedCities <- getItem localStorage selectedCitiesKey
   let selectedCities = fromMaybe' (\_ -> initialSelectedCity) storedSelectedCities
