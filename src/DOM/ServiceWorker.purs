@@ -31,4 +31,3 @@ register :: forall e
   .  URL
   -> Aff (swclient :: SERVICE_WORKER_CLIENT | e) Registration
 register = makeAff <<< register'
-

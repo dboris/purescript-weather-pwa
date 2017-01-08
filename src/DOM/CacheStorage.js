@@ -28,13 +28,39 @@ exports.deleteCache_ = function (cacheName, errback, callback) {
 exports.add_ = function (cache, url, errback, callback) {
   return function () {
     cache.add(url)
-      .then(function () { callback()() })
-      .catch(function (err) { errback(err)() });
+      .then(callback)
+      .catch(function (err) {
+        errback(err)();
+      });
   };
 };
 
 exports.addAll_ = function (cache, urls, errback, callback) {
   return function () {
-    cache.addAll(urls).then(callback);
+    cache.addAll(urls)
+      .then(callback)
+      .catch(function (err) {
+        errback(err)();
+      });
+  };
+};
+
+exports.match_ = function (cache, request, errback, callback) {
+  return function () {
+    cache.match(request)
+      .then(callback)
+      .catch(function (err) {
+        errback(err)();
+      });
+  };
+};
+
+exports.matchCaches_ = function (request, errback, callback) {
+  return function () {
+    caches.match(request)
+      .then(callback)
+      .catch(function (err) {
+        errback(err)();
+      });
   };
 };
