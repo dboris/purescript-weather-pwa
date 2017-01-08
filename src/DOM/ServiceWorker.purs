@@ -14,17 +14,19 @@ foreign import data Registration :: *
 foreign import data SERVICE_WORKER :: !
 foreign import data SERVICE_WORKER_CLIENT :: !
 
+type ServiceWorkerEff e a = Eff (swclient :: SERVICE_WORKER_CLIENT | e) a
+
 foreign import register_ :: forall e
   . Fn3 URL
-        (Error -> Eff (swclient :: SERVICE_WORKER_CLIENT | e) Unit)
-        (Registration -> Eff (swclient :: SERVICE_WORKER_CLIENT | e) Unit)
-        (Eff (swclient :: SERVICE_WORKER_CLIENT | e) Unit)
+        (Error -> ServiceWorkerEff e Unit)
+        (Registration -> ServiceWorkerEff e Unit)
+        (ServiceWorkerEff e Unit)
 
 register' :: forall e
   .  URL
-  -> (Error -> Eff (swclient :: SERVICE_WORKER_CLIENT | e) Unit)
-  -> (Registration -> Eff (swclient :: SERVICE_WORKER_CLIENT | e) Unit)
-  -> Eff (swclient :: SERVICE_WORKER_CLIENT | e) Unit
+  -> (Error -> ServiceWorkerEff e Unit)
+  -> (Registration -> ServiceWorkerEff e Unit)
+  -> ServiceWorkerEff e Unit
 register' = runFn3 register_
 
 register :: forall e

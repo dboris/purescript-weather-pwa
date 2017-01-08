@@ -14,6 +14,7 @@ foreign import data CACHE :: !
 foreign import data Cache :: *
 foreign import data CacheStorage :: *
 
+type CacheEff e a = Eff (cache :: CACHE | e) a
 type CacheName = String
 
 openCache :: forall e
@@ -23,29 +24,29 @@ openCache = makeAff <<< openCache'
 
 openCache' :: forall e
   .  CacheName
-  -> (Error -> Eff (cache :: CACHE | e) Unit)
-  -> (Cache -> Eff (cache :: CACHE | e) Unit)
-  -> Eff (cache :: CACHE | e) Unit
+  -> (Error -> CacheEff e Unit)
+  -> (Cache -> CacheEff e Unit)
+  -> CacheEff e Unit
 openCache' = runFn3 openCache_
 
 foreign import openCache_ :: forall e
   . Fn3 CacheName
-        (Error -> Eff (cache :: CACHE | e) Unit)
-        (Cache -> Eff (cache :: CACHE | e) Unit)
-        (Eff (cache :: CACHE | e) Unit)
+        (Error -> CacheEff e Unit)
+        (Cache -> CacheEff e Unit)
+        (CacheEff e Unit)
 
 
 foreign import hasCache_ :: forall e
   . Fn3 CacheName
-        (Error -> Eff (cache :: CACHE | e) Unit)
-        (Boolean -> Eff (cache :: CACHE | e) Unit)
-        (Eff (cache :: CACHE | e) Unit)
+        (Error -> CacheEff e Unit)
+        (Boolean -> CacheEff e Unit)
+        (CacheEff e Unit)
 
 foreign import deleteCache_ :: forall e
   . Fn3 CacheName
-        (Error -> Eff (cache :: CACHE | e) Unit)
-        (Boolean -> Eff (cache :: CACHE | e) Unit)
-        (Eff (cache :: CACHE | e) Unit)
+        (Error -> CacheEff e Unit)
+        (Boolean -> CacheEff e Unit)
+        (CacheEff e Unit)
 
 add :: forall e
   .  Cache
@@ -56,17 +57,17 @@ add c u = makeAff $ add' c u
 add' :: forall e
   .  Cache
   -> URL
-  -> (Error -> Eff (cache :: CACHE | e) Unit)
-  -> (Unit -> Eff (cache :: CACHE | e) Unit)
-  -> Eff (cache :: CACHE | e) Unit
+  -> (Error -> CacheEff e Unit)
+  -> (Unit -> CacheEff e Unit)
+  -> CacheEff e Unit
 add' = runFn4 add_
 
 foreign import add_ :: forall e
   . Fn4 Cache
         URL
-        (Error -> Eff (cache :: CACHE | e) Unit)
-        (Unit -> Eff (cache :: CACHE | e) Unit)
-        (Eff (cache :: CACHE | e) Unit)
+        (Error -> CacheEff e Unit)
+        (Unit -> CacheEff e Unit)
+        (CacheEff e Unit)
 
 addAll :: forall e
   .  Cache
@@ -77,14 +78,14 @@ addAll c uu = makeAff $ addAll' c uu
 addAll' :: forall e
   .  Cache
   -> Array URL
-  -> (Error -> Eff (cache :: CACHE | e) Unit)
-  -> (Unit -> Eff (cache :: CACHE | e) Unit)
-  -> Eff (cache :: CACHE | e) Unit
+  -> (Error -> CacheEff e Unit)
+  -> (Unit -> CacheEff e Unit)
+  -> CacheEff e Unit
 addAll' = runFn4 addAll_
 
 foreign import addAll_ :: forall e
   . Fn4 Cache
         (Array URL)
-        (Error -> Eff (cache :: CACHE | e) Unit)
-        (Unit -> Eff (cache :: CACHE | e) Unit)
-        (Eff (cache :: CACHE | e) Unit)
+        (Error -> CacheEff e Unit)
+        (Unit -> CacheEff e Unit)
+        (CacheEff e Unit)
