@@ -8,7 +8,7 @@ import Control.Monad.Eff.Exception (Error)
 
 import Data.Function.Uncurried (Fn3, runFn3, Fn4, runFn4)
 
-import DOM.Types (URL)
+import Network.HTTP.Affjax (URL)
 
 foreign import data CACHE :: !
 foreign import data Cache :: *

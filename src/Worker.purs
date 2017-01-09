@@ -10,7 +10,8 @@ import Control.Monad.Eff.Exception (EXCEPTION)
 import DOM.CacheStorage (CACHE, CacheName, openCache, addAll)
 import DOM.Event.Types (Event)
 import DOM.ServiceWorker (SERVICE_WORKER)
-import DOM.Types (URL, Request, FetchEvent)
+
+import Network.HTTP.Affjax (URL)
 
 foreign import onInstall :: forall e
   .  (Event -> Eff (console :: CONSOLE, sworker :: SERVICE_WORKER | e) Unit)

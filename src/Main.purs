@@ -29,12 +29,11 @@ import Data.WeatherCard (WeatherCard, ForecastData, fromWeatherService)
 import Data.Zippable (zip3)
 
 import DOM (DOM)
-import DOM.Types (URL)
 import DOM.ServiceWorker (SERVICE_WORKER_CLIENT)
 import DOM.ServiceWorker as ServiceWorker
 import DOM.WebStorage (STORAGE, getItem, setItem, getLocalStorage)
 
-import Network.HTTP.Affjax (AJAX, get)
+import Network.HTTP.Affjax (AJAX, URL, get)
 import Partial.Unsafe (unsafePartial)
 
 type WeekDay = String

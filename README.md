@@ -29,6 +29,6 @@ open static/index.html
 
 - [x] Implement your App Shell
 - [x] Start with a fast first load
-- [ ] Use service workers to pre-cache the App Shell
+- [x] Use service workers to pre-cache the App Shell
 - [ ] Use service workers to cache the forecast data
 - [ ] Support native integration
