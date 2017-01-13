@@ -35,7 +35,6 @@ foreign import openCache_ :: forall e
         (Cache -> CacheEff e Unit)
         (CacheEff e Unit)
 
-
 foreign import hasCache_ :: forall e
   . Fn3 CacheName
         (Error -> CacheEff e Unit)
@@ -89,3 +88,22 @@ foreign import addAll_ :: forall e
         (Error -> CacheEff e Unit)
         (Unit -> CacheEff e Unit)
         (CacheEff e Unit)
+
+foreign import deleteOldCaches_ :: forall e
+  . Fn3 (Array CacheName)
+        (Error -> CacheEff e Unit)
+        (Unit -> CacheEff e Unit)
+        (CacheEff e Unit)
+
+deleteOldCaches' :: forall e
+  .  Array CacheName
+  -> (Error -> CacheEff e Unit)
+  -> (Unit -> CacheEff e Unit)
+  -> CacheEff e Unit
+deleteOldCaches' = runFn3 deleteOldCaches_
+
+-- | Delete caches not in the list `currentCacheNames`
+deleteOldCaches :: forall e
+  .  Array CacheName
+  -> Aff ( cache :: CACHE | e) Unit
+deleteOldCaches currentCacheNames = makeAff $ deleteOldCaches' currentCacheNames

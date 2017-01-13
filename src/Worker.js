@@ -17,18 +17,10 @@ function fetchCached(fetchEvent) {
 
 self.addEventListener("fetch", fetchCached);
 
-exports.onInstall = function (callback) {
-  return function () {
-    self.addEventListener("install", function (event) {
-      callback(event)();
-    });
-  };
-}
-
 exports.onFetch = function (callback) {
   return function () {
     self.addEventListener("fetch", function (event) {
       callback(event)();
     });
   };
-}
+};

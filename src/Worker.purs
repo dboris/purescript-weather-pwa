@@ -7,18 +7,16 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Eff.Exception (EXCEPTION)
 
-import DOM.CacheStorage (CACHE, CacheName, openCache, addAll)
-import DOM.Event.Types (Event)
-import DOM.ServiceWorker (SERVICE_WORKER)
+import DOM.CacheStorage (CACHE, CacheName, addAll, deleteOldCaches, openCache)
+import DOM.ServiceWorker (SERVICE_WORKER, onActivate, onInstall, waitUntil, claimClients, activateEventToExtendableEvent, installEventToExtendableEvent)
 
 import Network.HTTP.Affjax (URL)
 
-foreign import onInstall :: forall e
-  .  (Event -> Eff (console :: CONSOLE, sworker :: SERVICE_WORKER | e) Unit)
-  -> Eff (console :: CONSOLE, sworker :: SERVICE_WORKER | e) Unit
-
 cacheName :: CacheName
 cacheName = "weather-pwa-v1"
+
+dataCacheName :: CacheName
+dataCacheName = "weatherData-v1"
 
 filesToCache :: Array URL
 filesToCache =
@@ -45,9 +43,17 @@ main :: forall e
   . Eff ( cache :: CACHE
         , console :: CONSOLE
         , err :: EXCEPTION
-        , sworker :: SERVICE_WORKER
+        , sw :: SERVICE_WORKER
         | e) Unit
 main = do
-  onInstall $ \_ -> void $ launchAff $ do
-    cache <- openCache cacheName
-    addAll cache filesToCache
+  onInstall $ \event -> do
+    log "[ServiceWorker] Install"
+    waitUntil (installEventToExtendableEvent event) $ void $ launchAff do
+      cache <- openCache cacheName
+      addAll cache filesToCache
+  onActivate $ \event -> do
+    log "[ServiceWorker] Activate"
+    waitUntil (activateEventToExtendableEvent event) $ void $ launchAff do
+      deleteOldCaches [cacheName, dataCacheName]
+    claimClients
+
